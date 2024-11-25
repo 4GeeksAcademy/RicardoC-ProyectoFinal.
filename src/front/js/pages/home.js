@@ -1,26 +1,61 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { Context } from "../store/appContext";
-import rigoImageUrl from "../../img/rigo-baby.jpg";
+import { useNavigate } from "react-router-dom";
 import "../../styles/home.css";
+const Home = () => {
+	const { actions } = useContext(Context);
+	const [loginData, setLoginData] = useState({
+		email: "",
+		password: ""
+	});
 
-export const Home = () => {
-	const { store, actions } = useContext(Context);
-
+	const navigate = useNavigate();
+	const handleChange = (e) => {
+		setLoginData({
+			...loginData, [e.target.name]: e.target.value
+		});
+	};
+	
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		const result = await actions.login(loginData);
+		if (result.jwt_token && result.msg === "ok") {
+			localStorage.setItem("jwt_token", result.jwt_token);
+			navigate("/signup")
+		}
+	}
 	return (
-		<div className="text-center mt-5">
-			<h1>Hello Rigo!!</h1>
-			<p>
-				<img src={rigoImageUrl} />
-			</p>
-			<div className="alert alert-info">
-				{store.message || "Loading message from the backend (make sure your python backend is running)..."}
+		<div className='container d-flex flex-column align-items-center' style={{ margin: "10% auto" }}>
+			<div className='d-flex flex-column' style={{ width: "300px", padding: "10px", border: "1px solid gray" }}>
+				<form onSubmit={handleSubmit}>
+					<h1 className='mb-5' style={{ marginLeft: "30%" }}>Login</h1>
+					<div className="mb-3">
+						<label htmlFor="email">Email</label>
+						<input
+							type="email"
+							name="email"
+							value={loginData.email}
+							onChange={handleChange}
+							id="email"
+							placeholder="name@example.com"
+							required />
+					</div>
+					<div className="mb-3">
+						<label htmlFor="password">Password</label>
+						<input
+							type="password"
+							name="password"
+							value={loginData.password}
+							onChange={handleChange}
+							id="password" placeholder="Enter password"
+							required
+						/>
+					</div>
+					<button className="btn btn-primary mt-5" style={{ width: "40%", marginLeft: "30%" }} type="submit">Login</button>
+				</form>
 			</div>
-			<p>
-				This boilerplate comes with lots of documentation:{" "}
-				<a href="https://start.4geeksacademy.com/starters/react-flask">
-					Read documentation
-				</a>
-			</p>
-		</div>
+			<a href="/signup">Click to register</a>
+		</div >
 	);
 };
+export default Home;
