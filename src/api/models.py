@@ -11,30 +11,6 @@ class StockType(enum.Enum):
     cable = 'cable'
     mouse = 'mouse'
     camera = 'camera'
-class PaymentStatus(enum.Enum):
-    pending = 'pending'
-    completed = 'completed'
-    failed = 'failed'
-class Payment(db.Model):
-    __tablename__='payment'
-    id=db.Column(db.Integer, primary_key=True)
-    user_id=db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    amount = db.Column(db.Integer, nullable=False)
-    currency=db.Column(db.String(3), nullable=False)
-    status=db.Column(Enum(PaymentStatus), nullable=False)
-    payment_intent_id=db.Column(db.String(50), nullable=False)#almacena el id de PaymentIntent
-    user=db.relationship('User', back_populates='payments')
-    def __repr__(self):
-        return f'Payment: {self.id}>'
-    def serialize(self):
-        return{
-        'id':self.id,
-        'user_id':self.user_id,
-        'amount':self.amount,
-        'currency':self.currency,
-        'status':self.status.value,
-        'payment_intent_id':self.payment_intent_id
-        }
 class User(db.Model):
     __tablename__='user'
     id = db.Column(db.Integer, primary_key=True)
@@ -45,8 +21,6 @@ class User(db.Model):
     usertype = db.Column(Enum(UserType), nullable=False)
     orders_relationship = db.relationship('Order', back_populates='user_relationship')
     cart=db.relationship('Cart', back_populates='user_relationship', uselist=False)
-    payments=db.relationship('Payment', back_populates='user')
-
     def __repr__(self):
         return f'<User: {self.email}>'
     def serialize(self):
@@ -57,14 +31,12 @@ class User(db.Model):
             'usertype': self.usertype.value
             # do not serialize the password, its a security breach
         }
-    
 class Cart(db.Model):
     __tablename__='cart'
     id=db.Column(db.Integer, primary_key=True)
     user_id=db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     user_relationship=db.relationship('User', back_populates='cart')
     cart_items=db.relationship('CartItem', back_populates='cart')
-
     def __repr__(self):
         return f'<Cart: {self.id}, User: {self.user_id}>'
     def serialize(self):
@@ -72,7 +44,6 @@ class Cart(db.Model):
             'id':self.id,
             'user_id':self.user_id
         }
-    
 class CartItem(db.Model):
     __tablename__='cart_item'
     id=db.Column(db.Integer, primary_key=True)
@@ -81,13 +52,13 @@ class CartItem(db.Model):
     quantity=db.Column(db.Integer, nullable=False)
     cart=db.relationship('Cart', back_populates='cart_items')
     product=db.relationship('Products', back_populates='item')
-
     def __repr__(self):
         return f'<CartItem: {self.id}, Cart{self.cart_id}>'
     def serialize(self):
         return{
             'id':self.id,
             'cart_id':self.cart_id,
+            'user': self.cart.user_relationship.username,
             'product_id':self.product_id,
             'quantity':self.quantity,
             'product_name': self.product.name,
@@ -95,7 +66,6 @@ class CartItem(db.Model):
             'product_image': self.product.image,
             'product_stocktype': self.product.stocktype.value
         }
-    
 class Products(db.Model):
     __tablename__='products'
     id=db.Column(db.Integer, primary_key=True)
@@ -107,7 +77,6 @@ class Products(db.Model):
     image=db.Column(db.String(200), nullable=False)
     order_details=db.relationship('OrderDetail', back_populates='product_relationship')
     item = db.relationship('CartItem', back_populates='product')
-
     def __repr__(self):
         return f'<Product: {self.name}>'
     def serialize(self):
@@ -120,7 +89,6 @@ class Products(db.Model):
             'stocktype': self.stocktype.value, #Convertimos el Enum a su valor(texto: "monitor")
             'image': self.image
         }
-    
 class Order(db.Model):
     __tablename__='order'
     id=db.Column(db.Integer, primary_key=True)
@@ -128,7 +96,6 @@ class Order(db.Model):
     user_id=db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     user_relationship = db.relationship('User', back_populates='orders_relationship')
     order_details_relationship= db.relationship('OrderDetail', back_populates='order')
-
     def __repr__(self):
         return f'<Order: {self.id}, Date: {self.date}, User: {self.user_id}>'
     def serialize(self):
@@ -137,7 +104,6 @@ class Order(db.Model):
             'date': self.date,
             'user_id': self.user_id
         }
-    
 class OrderDetail(db.Model):
     __tablename__='order_detail'
     id=db.Column(db.Integer, primary_key=True)
@@ -147,7 +113,6 @@ class OrderDetail(db.Model):
     order = db.relationship(Order, back_populates='order_details_relationship')
     quantity=db.Column(db.Integer, nullable=False)
     price=db.Column(db.Float, nullable=False)
-    
     def __repr__(self):
         return f'<OrderDetail: {self.id}>'
     def serialize(self):
@@ -156,9 +121,25 @@ class OrderDetail(db.Model):
             'product_id': self.product_id,
             'order_id': self.order_id,
             'quantity': self.quantity,
-            'price': self.price
+            'price': self.price,
+            'product_name': self.product_relationship.name,
+            'user_name':self.order.user_relationship.username,
+            'user_email':self.order.user_relationship.email,
+            'product_price':self.product_relationship.price,
+            'product_image':self.product_relationship.image,
+            'product_description':self.product_relationship.description,
+            'product_stocktype':self.product_relationship.stocktype.value
         }
-
+"""
+1)Crear enum con estados de pago y un endpoint para modificar el estado de pago de la orden
+al crear la orden el estado de pago será pending y al completarse el pago con exito consumimos la api para actualizar el estado a completed.
+2)Actualizar de manera correcta los estados para evitar recargas de paginas y la app sea fluida.
+3)Integrar los endpoints que faltan(tanto para el admin como el usuario) que son para crear un buscador y traer los productos por parametros,
+obtener ordenes especificas por id y detalles de ordenes y modificar los datos del usuario, además de mostrar más detalles del Profile.
+4)Integrar endpoints para forgotPassword por email y entregar factura
+5)Responsive
+6)Foco en los estilos, solucionar conflictos hacer la página mas simple aún
+"""
 
 
 

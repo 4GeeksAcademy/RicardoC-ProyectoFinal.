@@ -1,14 +1,13 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react';
 import { Context } from '../store/appContext';
-import { useNavigate, Link } from 'react-router-dom';
-import '../../styles/StockAdmin.css'
-const StockAdmin = () => {
+import { useNavigate, useParams } from 'react-router-dom';
+import '../../styles/StockAdminUpdate.css'
+const StockAdminUpdate = () => {
     const token = localStorage.getItem("jwt_token");
     const url = process.env.BACKEND_URL;
     const { actions, store } = useContext(Context);
-    const [isLoading, setIsLoading] = useState(true);
+    const { product_id } = useParams();
     const navigate = useNavigate();
-    const products = store.stock;
     const [productData, setProductData] = useState({
         name: "",
         description: "",
@@ -27,50 +26,30 @@ const StockAdmin = () => {
         } else if (store.userProfile && store.userProfile.usertype !== "admin") {
             navigate("/");
         }
-    }, [store.userProfile, actions, navigate, products, token]);
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-        try {
-            const resp = await fetch(`${url}create_product`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(productData)//Almacenar datos en un estado en el componente.
-            });
-            if (!resp.ok) {
-                throw new Error("Error receiving data!")
-            }
-            const result = await resp.json();
-            alert('Product created successfully!')
-            await actions.getStock();
-            return { status: resp.status, data: result.data };
-        } catch (err) {
-            console.error("There was a problem with the fetch operation:", err);
-            alert("Product not created!");
-        }
-    };
-    const handleDeleted = async (id) => {
+    }, [store.userProfile, navigate, token]);
+    const handleUpdate = async (e, product_id) => {
+        e.preventDefault();
         try {
             if (!token) {
                 return null
             }
-            const resp = await fetch(`${url}delete_product/${id}`, {
-                method: "DELETE",
+            const resp = await fetch(`${url}modify_product/${product_id}`, {
+                method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
-                }
+                },
+                body: JSON.stringify(productData)
             });
             if (!resp.ok) {
                 throw new Error("Error deleting data!");
             }
-            alert("Product Successfully Removed");
-            await actions.getStock();
+            alert("Product Successfully updated");
+            navigate("/stock-admin");
+            window.location.reload();
         } catch (err) {
             console.error("There was a problem with the fetch operation:", err);
-            alert("Product not removed!")
+            alert("Product not updated!")
         }
     };
     const handleChange = (e) => {
@@ -78,16 +57,11 @@ const StockAdmin = () => {
             ...productData, [e.target.name]: e.target.value //Propiedades computadas para actualizar propiedades de manera dinamica.
         });
     };
-    useEffect(() => {
-        if (products.length > 0) {
-            setIsLoading(false)
-        }
-    }, [products])
     return (
-        <div className='container addProduct'>
-            <form className="formAddProducts" onSubmit={handleSubmit}>
-                <h1>Add Product to Stock</h1>
-                <div className="inputAndLabelNameAddProduct">
+        <div className='container update'>
+            <form className="formUpdateProducts" onSubmit={(e) => handleUpdate(e, product_id)}>
+                <h1>Update Product</h1>
+                <div className="inputAndLabelNameUpdateProduct">
                     <label htmlFor="name">Name</label>
                     <input
                         type="text"
@@ -98,7 +72,7 @@ const StockAdmin = () => {
                         required
                     />
                 </div>
-                <div className="inputAndLabelDescriptionAddProduct">
+                <div className="inputAndLabelDescriptionUpdateProduct">
                     <label htmlFor="description">Description</label>
                     <input
                         type="text"
@@ -109,7 +83,7 @@ const StockAdmin = () => {
                         required
                     />
                 </div>
-                <div className="inputAndLabelStockAddProduct">
+                <div className="inputAndLabelStockUpdateProduct">
                     <label htmlFor="stock">Stock</label>
                     <input
                         type="number"
@@ -121,7 +95,7 @@ const StockAdmin = () => {
                         required
                     />
                 </div>
-                <div className="inputAndLabelPriceAddProduct">
+                <div className="inputAndLabelPriceUpdateProduct">
                     <label htmlFor="price">Price</label>
                     <input
                         type="number"
@@ -133,7 +107,7 @@ const StockAdmin = () => {
                         required
                     />
                 </div>
-                <div className="inputAndLabelImageAddProduct">
+                <div className="inputAndLabelImageUpdateProduct">
                     <label htmlFor="image">Image-URL</label>
                     <input
                         type="text"
@@ -144,7 +118,7 @@ const StockAdmin = () => {
                         required
                     />
                 </div>
-                <div className="inputAndLabelStocktypeAddProduct">
+                <div className="inputAndLabelStocktypeUpdateProduct">
                     <label htmlFor="stocktype">StockType</label>
                     <select
                         id="stocktype"
@@ -160,44 +134,14 @@ const StockAdmin = () => {
                         <option value="camera">Camera</option>
                     </select>
                 </div>
-                <div className="addButton">
-                    <button className="btn btn-dark addProduct" type="submit">
-                        <p>Add</p>
+                <div className="updateButton">
+                    <button className="btn btn-dark update" type="submit">
+                        <p>Update</p>
                         <i className="fa-solid fa-plus"></i>
                     </button>
                 </div>
             </form>
-            <hr></hr>
-            <h1>Modify or Delete the product</h1>
-            <div className='container adminCard'>
-                {isLoading ? (
-                    <div>Loading...</div>
-                ) : (
-                    products.map(product => (
-                        <div className="card admin" key={product.id}>
-                            <div className='nameType'>
-                                <h5 className="card-title admin">Name: {product.name}</h5>
-                                <p className="card-text admin">Type: {product.stocktype}</p>
-                            </div>
-                            <div className='container-img admin'>
-                                <img src={product.image} className="card-img-top admin" alt={product.name} />
-                            </div>
-                            <div className="card-body admin">
-                                <p className="card-text admin">Description: {product.description}</p>
-                                <p className="card-text admin">Stock: {product.stock}</p>
-                                <p className="card-text admin">Price: {product.price}</p>
-                                <div className='modifyTrash'>
-                                    <Link to={`/stock-admin-update/${product.id}`}>
-                                        <button className="btn admin"><i className="fa-solid fa-pen"></i></button>
-                                    </Link>
-                                    <button className="btn admin" onClick={() => handleDeleted(product.id)}><i className="fa-solid fa-trash" ></i></button>
-                                </div>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
         </div>
     )
-} //HAY QUE MOSTRAR EL STOCK.
-export default StockAdmin
+}
+export default StockAdminUpdate
